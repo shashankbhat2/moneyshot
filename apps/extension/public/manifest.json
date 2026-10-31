@@ -1,0 +1,35 @@
+{
+  "manifest_version": 3,
+  "name": "Moneyshot",
+  "description": "Take a screenshot and make it beautiful: backgrounds, frames and sizes for every platform.",
+  "version": "0.0.0",
+  "minimum_chrome_version": "116",
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+  "action": {
+    "default_title": "Take a screenshot",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png",
+      "48": "icons/icon-48.png"
+    }
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "commands": {
+    "take-screenshot": {
+      "suggested_key": {
+        "default": "Alt+Shift+S"
+      },
+      "description": "Take a screenshot of the current tab"
+    }
+  },
+  "permissions": ["scripting", "storage", "unlimitedStorage", "activeTab", "declarativeContent"],
+  "host_permissions": ["<all_urls>"]
+}

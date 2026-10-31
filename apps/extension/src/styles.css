@@ -1,0 +1,65 @@
+@import "tailwindcss";
+
+/* `dark:` follows data-theme, set from the system theme by initTheme(). */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+/* Moneyshot accent, only for primary actions. Use it flat, not in gradients. */
+@theme {
+  --color-brand: #0bb171;
+  --color-brand-600: #09955f;
+  --color-brand-300: #7dd8b2;
+}
+
+/* Semantic colors that follow the system light/dark theme: bg-canvas, bg-surface, text-muted… */
+@theme inline {
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-raised: var(--raised);
+  --color-line: var(--line);
+  --color-fg: var(--fg);
+  --color-muted: var(--muted);
+  --color-subtle: var(--subtle);
+}
+
+:root {
+  color-scheme: light;
+  --canvas: #f5f5f8;
+  --surface: #ffffff;
+  --raised: #f0f0f5;
+  --line: #e6e6ee;
+  --fg: #17171c;
+  --muted: #696975;
+  --subtle: #a1a1ac;
+}
+
+/* data-theme is set by initTheme() from the system theme. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --canvas: #0a0a0e;
+  --surface: #141419;
+  --raised: #1e1e26;
+  --line: #2a2a35;
+  --fg: #f4f4f6;
+  --muted: #a1a1ad;
+  --subtle: #6e6e7a;
+}
+
+@layer base {
+  button:not(:disabled),
+  a[href],
+  summary,
+  label:has(> input:not(:disabled)) {
+    cursor: pointer;
+  }
+  button:disabled {
+    cursor: not-allowed;
+  }
+}
+
+body {
+  margin: 0;
+  background: var(--canvas);
+  color: var(--fg);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}

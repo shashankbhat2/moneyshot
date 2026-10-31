@@ -1,0 +1,96 @@
+---
+import Logo from "../components/Logo.astro";
+import Layout from "../layouts/Layout.astro";
+
+const GITHUB_URL = "https://github.com/shashankbhat2/moneyshot";
+
+const features = [
+  {
+    title: "Backgrounds",
+    body: "Mesh gradients, wallpapers, solid colors and gradients, with patterns on top. Or upload your own.",
+  },
+  {
+    title: "Frames",
+    body: "macOS light and dark, Windows, Arc, rulers and stacked cards, with rounded corners and soft shadows.",
+  },
+  {
+    title: "Sizes for every platform",
+    body: "X, LinkedIn, Instagram, YouTube, Product Hunt, the App Store and Play Store, exported at exact pixels.",
+  },
+  {
+    title: "Text and watermarks",
+    body: "Add a headline above or below the screenshot, and your handle or URL in a corner.",
+  },
+  {
+    title: "Drag, rotate and tilt",
+    body: "Move the screenshot and text on the canvas with center guides, rotate it, or tilt it in 3D.",
+  },
+  {
+    title: "Private by default",
+    body: "Everything happens in your browser. Screenshots never leave your computer.",
+  },
+];
+---
+
+<Layout>
+  <header class="mx-auto flex max-w-5xl items-center justify-between px-6 py-6">
+    <a href="/" aria-label="Moneyshot home"><Logo /></a>
+    <a href={GITHUB_URL} class="text-sm font-medium text-muted hover:text-fg">GitHub</a>
+  </header>
+
+  <main class="mx-auto max-w-5xl px-6">
+    <section class="py-20 text-center sm:py-28">
+      <h1 class="mx-auto max-w-3xl text-4xl font-semibold tracking-tight text-balance sm:text-6xl">
+        Screenshots worth sharing
+      </h1>
+      <p class="mx-auto mt-6 max-w-xl text-lg text-pretty text-muted">
+        Capture any page, then give it a background, a frame and the right size for wherever it's
+        going. Free and open source.
+      </p>
+      <div class="mt-10 flex flex-wrap justify-center gap-3">
+        <a
+          href="#"
+          class="rounded-xl bg-brand px-5 py-3 font-semibold text-white transition-colors hover:bg-brand-600"
+        >
+          Add to Chrome
+        </a>
+        <a
+          href={GITHUB_URL}
+          class="rounded-xl border border-line px-5 py-3 font-semibold transition-colors hover:bg-raised"
+        >
+          View on GitHub
+        </a>
+      </div>
+    </section>
+
+    <section aria-labelledby="features" class="border-t border-line py-20">
+      <h2 id="features" class="text-2xl font-semibold tracking-tight">Everything a screenshot needs</h2>
+      <div class="mt-10 grid gap-x-10 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
+        {
+          features.map((feature) => (
+            <div>
+              <h3 class="font-semibold">{feature.title}</h3>
+              <p class="mt-2 text-sm leading-relaxed text-muted">{feature.body}</p>
+            </div>
+          ))
+        }
+      </div>
+    </section>
+
+    <section aria-labelledby="open-source" class="border-t border-line py-20">
+      <h2 id="open-source" class="text-2xl font-semibold tracking-tight">Open source</h2>
+      <p class="mt-4 max-w-xl text-muted">
+        Moneyshot is an open source screenshot editor, licensed under the
+        AGPL. Read the code, suggest features or contribute on GitHub.
+      </p>
+      <a href={GITHUB_URL} class="mt-6 inline-block font-medium hover:underline">
+        github.com/shashankbhat2/moneyshot →
+      </a>
+    </section>
+  </main>
+
+  <footer class="mx-auto flex max-w-5xl items-center justify-between border-t border-line px-6 py-8 text-sm text-muted">
+    <span>© {new Date().getFullYear()} Moneyshot</span>
+    <a href={GITHUB_URL} class="hover:text-fg">GitHub</a>
+  </footer>
+</Layout>
