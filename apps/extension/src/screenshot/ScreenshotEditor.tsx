@@ -1,5 +1,5 @@
-import { Check, Copy, Download, RotateCcw } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { Check, Copy, Download, ImageUp, RotateCcw } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Accordion } from "../components/Accordion";
 import { DotPad } from "../components/DotPad";
 import { Logo } from "../components/Logo";
@@ -7,7 +7,7 @@ import { DEFAULT_STYLE, normalizeStyle, type ShotStyle } from "../lib/screenshot
 import { type Fill, fillLabel, PATTERN_KINDS } from "../lib/shot-fills";
 import { FRAMES } from "../lib/shot-frames";
 import { sizeFor } from "../lib/shot-sizes";
-import { getShot } from "../lib/shots";
+import { getShot, putShot } from "../lib/shots";
 import { BackgroundPicker, useAssetUrl } from "./BackgroundPicker";
 import { Slider } from "./controls";
 import { FramePicker } from "./FramePicker";
@@ -34,20 +34,31 @@ function useImage(url: string | null) {
 /** Load the latest screenshot as an image element; null while loading, false if none. */
 function useLatestShot() {
   const [url, setUrl] = useState<string | null | false>(null);
-  useEffect(() => {
-    let objectUrl: string | null = null;
-    getShot().then((blob) => {
-      if (!blob) return setUrl(false);
-      objectUrl = URL.createObjectURL(blob);
-      setUrl(objectUrl);
-    });
-    return () => {
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
-    };
+  const current = useRef<string | null>(null);
+  const show = useCallback((blob: Blob) => {
+    if (current.current) URL.revokeObjectURL(current.current);
+    current.current = URL.createObjectURL(blob);
+    setUrl(current.current);
   }, []);
+  useEffect(() => {
+    getShot().then((blob) => (blob ? show(blob) : setUrl(false)));
+    return () => {
+      if (current.current) URL.revokeObjectURL(current.current);
+    };
+  }, [show]);
   const image = useImage(url || null);
-  return url === false ? false : image;
+
+  /** Swap in another image (an upload, a drop or a paste); it becomes the latest screenshot. */
+  const replace = async (blob: Blob) => {
+    await putShot(blob);
+    show(blob);
+  };
+  return [url === false ? false : image, replace] as const;
 }
+
+/** The first image among dropped or pasted files, if any. */
+const imageFrom = (files: FileList | null | undefined) =>
+  [...(files ?? [])].find((file) => file.type.startsWith("image/"));
 
 /** The style is remembered between screenshots (saved shortly after changes stop, e.g. drags). */
 function useShotStyle() {
@@ -91,8 +102,23 @@ const tiltLabel = ({ x, y }: { x: number; y: number }) =>
   x === 0 && y === 0 ? "Flat" : `${Math.round(Math.hypot(x, y) * 100)}%`;
 
 export function ScreenshotEditor() {
-  const image = useLatestShot();
+  const [image, replaceImage] = useLatestShot();
   const [style, update, loaded] = useShotStyle();
+  const upload = useRef<HTMLInputElement>(null);
+  const [dropping, setDropping] = useState(false);
+
+  // Paste an image (⌘V / Ctrl+V) to use it instead, unless typing in a field.
+  useEffect(() => {
+    const onPaste = (event: ClipboardEvent) => {
+      if (event.target instanceof Element && event.target.closest("input, textarea")) return;
+      const file = imageFrom(event.clipboardData?.files);
+      if (!file) return;
+      event.preventDefault();
+      replaceImage(file);
+    };
+    window.addEventListener("paste", onPaste);
+    return () => window.removeEventListener("paste", onPaste);
+  });
   const backgroundUrl = useAssetUrl(style.background.kind === "image" ? style.background.id : null);
   const backgroundImage = useImage(backgroundUrl);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -123,12 +149,36 @@ export function ScreenshotEditor() {
     setTimeout(() => setCopied(false), 1600);
   }
 
+  const fileInput = (
+    <input
+      ref={upload}
+      type="file"
+      accept="image/*"
+      aria-label="Image file"
+      className="hidden"
+      onChange={(event) => {
+        const file = imageFrom(event.target.files);
+        if (file) replaceImage(file);
+        event.target.value = "";
+      }}
+    />
+  );
+
   if (image === false) {
     return (
       <div className="grid h-screen place-items-center bg-canvas p-6 text-center text-fg">
-        <div className="space-y-3">
+        <div className="space-y-4">
           <Logo className="mx-auto h-8 w-auto" />
           <p className="text-muted">There's no screenshot yet.</p>
+          <button
+            type="button"
+            onClick={() => upload.current?.click()}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-line px-3 py-2 font-medium text-sm hover:bg-raised"
+          >
+            <ImageUp className="size-4" aria-hidden />
+            Upload an image
+          </button>
+          {fileInput}
         </div>
       </div>
     );
@@ -143,6 +193,16 @@ export function ScreenshotEditor() {
           <h1 className="font-medium text-muted">Screenshot</h1>
         </div>
         <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => upload.current?.click()}
+            title="Replace image (or drop or paste one)"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-line px-3 py-2 font-medium text-sm hover:bg-raised"
+          >
+            <ImageUp className="size-4" aria-hidden />
+            Replace image
+          </button>
+          {fileInput}
           <button
             type="button"
             onClick={copy}
@@ -168,12 +228,27 @@ export function ScreenshotEditor() {
         </div>
       </header>
 
-      {/* Preview (2/3) and settings (1/3) share one container, split by a line. */}
+      {/* Preview and settings share one container, split by a line. */}
       <main className="mx-auto max-w-5xl px-6 pb-8">
-        <div className="grid overflow-hidden rounded-2xl border border-line bg-surface lg:h-[calc(100vh-7.5rem)] lg:grid-cols-[2fr_1fr]">
+        <div className="grid overflow-hidden rounded-2xl border border-line bg-surface lg:h-[calc(100vh-7.5rem)] lg:grid-cols-[minmax(0,1fr)_400px]">
+          {/* Drop an image here to use it instead. */}
           <section
             aria-label="Preview"
-            className="grid min-h-0 place-items-center bg-raised/40 p-6 lg:p-8"
+            onDragOver={(event) => {
+              if (![...event.dataTransfer.types].includes("Files")) return;
+              event.preventDefault();
+              setDropping(true);
+            }}
+            onDragLeave={() => setDropping(false)}
+            onDrop={(event) => {
+              event.preventDefault();
+              setDropping(false);
+              const file = imageFrom(event.dataTransfer.files);
+              if (file) replaceImage(file);
+            }}
+            className={`grid min-h-0 place-items-center p-6 transition-colors lg:p-8 ${
+              dropping ? "bg-raised ring-2 ring-fg/20 ring-inset" : "bg-raised/40"
+            }`}
           >
             <PreviewCanvas
               ref={canvasRef}

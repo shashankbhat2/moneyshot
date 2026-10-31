@@ -6,9 +6,10 @@ import { ScreenshotEditor } from "./ScreenshotEditor";
 
 const getShot = vi.fn<() => Promise<Blob | undefined>>();
 const putAsset = vi.fn();
+const putShot = vi.fn<(blob: Blob) => Promise<void>>(async () => {});
 vi.mock("../lib/shots", () => ({
   getShot: () => getShot(),
-  putShot: vi.fn(),
+  putShot: (blob: Blob) => putShot(blob),
   getAsset: vi.fn(async () => new Blob(["png"], { type: "image/png" })),
   putAsset: (...args: unknown[]) => putAsset(...args),
   deleteAsset: vi.fn(async () => {}),
@@ -21,6 +22,7 @@ beforeEach(() => {
   vi.stubGlobal("chrome", chromeStub);
   getShot.mockResolvedValue(new Blob(["png"], { type: "image/png" }));
   putAsset.mockReset();
+  putShot.mockClear();
 });
 
 const tab = (name: string) => userEvent.click(screen.getByRole("tab", { name }));
@@ -184,10 +186,27 @@ describe("ScreenshotEditor", () => {
     expect(screen.getByRole("slider", { name: /Shadow/ })).toHaveValue("1");
   });
 
-  it("explains when there's no screenshot", async () => {
+  it("replaces the image with an upload or a paste", async () => {
+    await renderEditor();
+
+    const upload = new File(["png"], "other.png", { type: "image/png" });
+    await userEvent.upload(screen.getByLabelText("Image file"), upload);
+    expect(putShot).toHaveBeenCalledWith(upload);
+
+    const pasted = new File(["png"], "pasted.png", { type: "image/png" });
+    const paste = new Event("paste", { bubbles: true, cancelable: true });
+    Object.defineProperty(paste, "clipboardData", { value: { files: [pasted] } });
+    window.dispatchEvent(paste);
+    expect(putShot).toHaveBeenLastCalledWith(pasted);
+  });
+
+  it("explains when there's no screenshot and lets you upload one", async () => {
     getShot.mockResolvedValue(undefined);
     render(<ScreenshotEditor />);
 
     expect(await screen.findByText("There's no screenshot yet.")).toBeInTheDocument();
+    const file = new File(["png"], "mine.png", { type: "image/png" });
+    await userEvent.upload(screen.getByLabelText("Image file"), file);
+    await vi.waitFor(() => expect(putShot).toHaveBeenCalledWith(file));
   });
 });
