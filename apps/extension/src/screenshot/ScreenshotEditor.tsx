@@ -4,8 +4,14 @@ import { Accordion } from "../components/Accordion";
 import { DotPad } from "../components/DotPad";
 import { Logo } from "../components/Logo";
 import { ThemeSwitcher } from "../components/ThemeSwitcher";
-import { DEFAULT_EXPORT, type ExportOptions, exportFileName, renderExport } from "../lib/export";
-import { DEFAULT_STYLE, normalizeStyle, type ShotStyle } from "../lib/screenshot-style";
+import {
+  DEFAULT_EXPORT,
+  type ExportOptions,
+  exportFileName,
+  renderExport,
+  toExportOptions,
+} from "../lib/export";
+import { DEFAULT_STYLE, layoutShot, normalizeStyle, type ShotStyle } from "../lib/screenshot-style";
 import { type Fill, fillLabel, PATTERN_KINDS } from "../lib/shot-fills";
 import { FRAMES } from "../lib/shot-frames";
 import { sizeFor } from "../lib/shot-sizes";
@@ -94,7 +100,7 @@ function useExportOptions() {
   const [options, setOptions] = useState<ExportOptions>(DEFAULT_EXPORT);
   useEffect(() => {
     chrome.storage.local.get(EXPORT_KEY).then(({ [EXPORT_KEY]: saved }) => {
-      if (saved) setOptions({ ...DEFAULT_EXPORT, ...(saved as Partial<ExportOptions>) });
+      if (saved) setOptions(toExportOptions(saved));
     });
   }, []);
   const change = (next: ExportOptions) => {
@@ -237,7 +243,10 @@ export function ScreenshotEditor() {
             onChange={setExportOptions}
             getBase={() => {
               const preview = canvasRef.current;
-              return preview && image ? { width: preview.width, height: preview.height } : null;
+              if (!preview || !image) return null;
+              // Layout units are the screenshot's own pixels.
+              const sourceWidth = layoutShot(image, style).width;
+              return { width: preview.width, height: preview.height, sourceWidth };
             }}
             disabled={!image}
             onDownload={download}

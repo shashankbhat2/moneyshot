@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { exportDimensions, exportFileName, exportScale, svgWrapping } from "./export";
+import { exportDimensions, exportFileName, exportScale, toExportOptions } from "./export";
 
 describe("export sizes", () => {
   it("doubles for 2x and fits the longer side to 3840 px for 4K", () => {
@@ -17,9 +17,9 @@ describe("export files", () => {
     expect(exportFileName("webp", date)).toBe("moneyshot-2026-11-01-10-20-30.webp");
   });
 
-  it("wraps the rendered image in an SVG of the same size", () => {
-    const svg = svgWrapping("data:image/png;base64,AAA", 400, 300);
-    expect(svg).toContain('viewBox="0 0 400 300"');
-    expect(svg).toContain('<image href="data:image/png;base64,AAA" width="400" height="300"/>');
+  it("drops formats that are no longer offered from saved options", () => {
+    expect(toExportOptions({ format: "svg", size: "4k" })).toEqual({ format: "png", size: "4k" });
+    expect(toExportOptions({ format: "webp" })).toEqual({ format: "webp", size: "2x" });
+    expect(toExportOptions(null)).toEqual({ format: "png", size: "2x" });
   });
 });

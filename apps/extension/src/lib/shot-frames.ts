@@ -150,6 +150,7 @@ export function paintCard(
 ) {
   const context = canvas.getContext("2d");
   if (!context) return;
+  context.imageSmoothingQuality = "high";
   const { width, height } = canvas;
   const stacked = frame === "stack-light" || frame === "stack-dark";
   const front = { width, height: height - (stacked ? insets.bottom : 0) };

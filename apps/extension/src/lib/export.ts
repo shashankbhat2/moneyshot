@@ -1,7 +1,7 @@
-// Exporting the styled screenshot: PNG, JPG, WebP or SVG, at 1x, 2x or 4K.
+// Exporting the styled screenshot: PNG, JPG or WebP, at 1x, 2x or 4K.
 import { drawShot, type ShotStyle } from "./screenshot-style";
 
-export type ExportFormat = "png" | "jpeg" | "webp" | "svg";
+export type ExportFormat = "png" | "jpeg" | "webp";
 export type ExportSize = "1x" | "2x" | "4k";
 export type ExportOptions = { format: ExportFormat; size: ExportSize };
 
@@ -11,7 +11,6 @@ export const FORMATS: { id: ExportFormat; label: string; extension: string; mime
   { id: "png", label: "PNG", extension: "png", mime: "image/png" },
   { id: "jpeg", label: "JPG", extension: "jpg", mime: "image/jpeg" },
   { id: "webp", label: "WebP", extension: "webp", mime: "image/webp" },
-  { id: "svg", label: "SVG", extension: "svg", mime: "image/svg+xml" },
 ];
 
 export const SIZES: { id: ExportSize; label: string }[] = [
@@ -43,12 +42,17 @@ export function exportFileName(format: ExportFormat, date = new Date()) {
   return `moneyshot-${stamp}.${formatFor(format).extension}`;
 }
 
-/**
- * Screenshots are pixels, so the SVG wraps the rendered PNG. It still scales cleanly in design
- * tools and on the web, and keeps transparency.
- */
-export function svgWrapping(pngDataUrl: string, width: number, height: number) {
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><image href="${pngDataUrl}" width="${width}" height="${height}"/></svg>`;
+/** Saved options, dropping any format that's no longer offered (SVG was, once). */
+export function toExportOptions(saved: unknown): ExportOptions {
+  const value = (saved && typeof saved === "object" ? saved : {}) as Partial<ExportOptions>;
+  return {
+    format: FORMATS.some((format) => format.id === value.format)
+      ? (value.format as ExportFormat)
+      : DEFAULT_EXPORT.format,
+    size: SIZES.some((size) => size.id === value.size)
+      ? (value.size as ExportSize)
+      : DEFAULT_EXPORT.size,
+  };
 }
 
 const canvasBlob = (canvas: HTMLCanvasElement, mime: string, quality?: number) =>
@@ -74,10 +78,6 @@ export async function renderExport(
   const scale = exportScale(output.width, output.height, size);
   if (scale !== 1) drawShot(canvas, image, style, background, { scale });
 
-  if (format === "svg") {
-    const png = canvas.toDataURL("image/png");
-    return new Blob([svgWrapping(png, canvas.width, canvas.height)], { type: "image/svg+xml" });
-  }
   if (format === "jpeg") {
     // JPG has no transparency; put transparent areas on white rather than black.
     const flat = document.createElement("canvas");

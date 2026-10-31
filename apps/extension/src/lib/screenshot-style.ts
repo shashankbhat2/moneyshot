@@ -485,6 +485,9 @@ export function drawShot(
   canvas.width = width;
   canvas.height = height;
   if (!context) return layout;
+  // Resizing the canvas resets its state, so set this after. The default ("low") is visibly
+  // softer, and aliases when shrinking the screenshot.
+  context.imageSmoothingQuality = "high";
   // Draw in layout units, scaled to the output size.
   const scale = width / layout.width;
   const scaleY = height / layout.height;
@@ -520,6 +523,7 @@ export function drawShot(
   layer.height = height;
   const layerContext = layer.getContext("2d");
   if (!layerContext) return layout;
+  layerContext.imageSmoothingQuality = "high";
   layerContext.setTransform(scale, 0, 0, scaleY, 0, 0);
   if (style.rotation) {
     const centerX = place.x + place.width / 2;

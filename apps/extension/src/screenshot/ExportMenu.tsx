@@ -13,8 +13,12 @@ import {
 
 /**
  * Download button with export options (format and size) behind the chevron. `getBase` returns
- * the image's size at 1x, read when the menu renders so it matches the drawn preview.
+ * the image's size at 1x, and the width at the screenshot's own pixel scale; it's read when the
+ * menu renders so it matches the drawn preview.
  */
+/** Enlarging past this gets a note that the screenshot will look softer. */
+const UPSCALE_NOTICE = 1.05;
+
 export function ExportMenu({
   options,
   getBase,
@@ -23,7 +27,7 @@ export function ExportMenu({
   onDownload,
 }: {
   options: ExportOptions;
-  getBase: () => { width: number; height: number } | null;
+  getBase: () => { width: number; height: number; sourceWidth: number } | null;
   disabled: boolean;
   onChange: (options: ExportOptions) => void;
   onDownload: () => void;
@@ -48,6 +52,8 @@ export function ExportMenu({
 
   const base = open ? getBase() : null;
   const dimensions = base ? exportDimensions(base.width, base.height, options.size) : null;
+  // How far the export enlarges the screenshot beyond the pixels it was captured with.
+  const upscale = base && dimensions ? dimensions.width / base.sourceWidth : 0;
   const label = formatFor(options.format).label;
 
   return (
@@ -101,9 +107,10 @@ export function ExportMenu({
           </div>
           <p className="text-muted text-xs tabular-nums">
             {dimensions ? `${dimensions.width} × ${dimensions.height} px` : null}
-            {options.format === "svg" && (
+            {upscale > UPSCALE_NOTICE && (
               <span className="mt-1 block text-subtle">
-                The screenshot is embedded as an image inside the SVG.
+                That's {upscale.toFixed(1)}× the screenshot's own pixels, so it will look softer up
+                close. For sharper exports, capture on a high-resolution (Retina) display.
               </span>
             )}
             {options.format === "jpeg" && (
