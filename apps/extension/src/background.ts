@@ -7,6 +7,7 @@ import {
   toErrorResponse,
 } from "./lib/messages";
 import { putShot } from "./lib/shots";
+import { getTheme } from "./lib/theme";
 
 // Chrome allows ~2 captureVisibleTab calls per second.
 const MIN_CAPTURE_INTERVAL_MS = 550;
@@ -48,7 +49,7 @@ async function startScreenshot(tabId: number) {
   shotTabId = tabId;
   shotTiles = [];
   await chrome.scripting.executeScript({ target: { tabId }, files: ["content.js"] });
-  await sendToTab(tabId, { type: "content:screenshot" });
+  await sendToTab(tabId, { type: "content:screenshot", theme: await getTheme() });
 }
 
 async function screenshotTile(sender: chrome.runtime.MessageSender, y: number) {

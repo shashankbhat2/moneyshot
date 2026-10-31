@@ -1,8 +1,10 @@
-import { Check, Copy, Download, ImageUp, RotateCcw } from "lucide-react";
+import { Check, Copy, ImageUp, RotateCcw } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Accordion } from "../components/Accordion";
 import { DotPad } from "../components/DotPad";
 import { Logo } from "../components/Logo";
+import { ThemeSwitcher } from "../components/ThemeSwitcher";
+import { DEFAULT_EXPORT, type ExportOptions, exportFileName, renderExport } from "../lib/export";
 import { DEFAULT_STYLE, normalizeStyle, type ShotStyle } from "../lib/screenshot-style";
 import { type Fill, fillLabel, PATTERN_KINDS } from "../lib/shot-fills";
 import { FRAMES } from "../lib/shot-frames";
@@ -10,6 +12,7 @@ import { sizeFor } from "../lib/shot-sizes";
 import { getShot, putShot } from "../lib/shots";
 import { BackgroundPicker, useAssetUrl } from "./BackgroundPicker";
 import { Slider } from "./controls";
+import { ExportMenu } from "./ExportMenu";
 import { FramePicker } from "./FramePicker";
 import { PatternPicker } from "./PatternPicker";
 import { PreviewCanvas } from "./PreviewCanvas";
@@ -84,8 +87,22 @@ function useShotStyle() {
   return [style, update, loaded] as const;
 }
 
-const fileName = () =>
-  `moneyshot-${new Date().toISOString().slice(0, 19).replace(/[T:]/g, "-")}.png`;
+const EXPORT_KEY = "exportOptions";
+
+/** Export format and size, remembered between sessions. */
+function useExportOptions() {
+  const [options, setOptions] = useState<ExportOptions>(DEFAULT_EXPORT);
+  useEffect(() => {
+    chrome.storage.local.get(EXPORT_KEY).then(({ [EXPORT_KEY]: saved }) => {
+      if (saved) setOptions({ ...DEFAULT_EXPORT, ...(saved as Partial<ExportOptions>) });
+    });
+  }, []);
+  const change = (next: ExportOptions) => {
+    setOptions(next);
+    chrome.storage.local.set({ [EXPORT_KEY]: next }).catch(() => {});
+  };
+  return [options, change] as const;
+}
 
 const percent = (value: number) => `${Math.round(value * 100)}%`;
 const degrees = (value: number) => `${value}°`;
@@ -126,25 +143,25 @@ export function ScreenshotEditor() {
   const [tab, setTab] = useState<Tab>("layout");
   const size = sizeFor(style.aspect);
 
-  const toBlob = () =>
-    new Promise<Blob>((resolve, reject) =>
-      canvasRef.current?.toBlob(
-        (blob) => (blob ? resolve(blob) : reject(new Error("Export failed"))),
-        "image/png",
-      ),
-    );
+  const [exportOptions, setExportOptions] = useExportOptions();
+
+  /** Render at the chosen size; the preview canvas is only the 1x render. */
+  const exportBlob = (options: ExportOptions) =>
+    image ? renderExport(image, style, backgroundImage, options) : Promise.reject();
 
   async function download() {
-    const url = URL.createObjectURL(await toBlob());
+    const url = URL.createObjectURL(await exportBlob(exportOptions));
     const link = document.createElement("a");
     link.href = url;
-    link.download = fileName();
+    link.download = exportFileName(exportOptions.format);
     link.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
+  /** The clipboard takes PNGs, so Copy uses PNG at the chosen size. */
   async function copy() {
-    await navigator.clipboard.write([new ClipboardItem({ "image/png": toBlob() })]);
+    const blob = exportBlob({ ...exportOptions, format: "png" });
+    await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
     setCopied(true);
     setTimeout(() => setCopied(false), 1600);
   }
@@ -190,7 +207,8 @@ export function ScreenshotEditor() {
         <div className="flex items-center gap-3">
           <Logo className="h-7 w-auto" />
         </div>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
+          <ThemeSwitcher />
           <button
             type="button"
             onClick={() => upload.current?.click()}
@@ -214,15 +232,16 @@ export function ScreenshotEditor() {
             )}
             {copied ? "Copied" : "Copy"}
           </button>
-          <button
-            type="button"
-            onClick={download}
+          <ExportMenu
+            options={exportOptions}
+            onChange={setExportOptions}
+            getBase={() => {
+              const preview = canvasRef.current;
+              return preview && image ? { width: preview.width, height: preview.height } : null;
+            }}
             disabled={!image}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-brand px-4 py-2 font-semibold text-sm text-white transition-colors hover:bg-brand-600 disabled:opacity-50"
-          >
-            <Download className="size-4" aria-hidden />
-            Download PNG
-          </button>
+            onDownload={download}
+          />
         </div>
       </header>
 

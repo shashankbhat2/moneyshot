@@ -186,6 +186,32 @@ describe("ScreenshotEditor", () => {
     expect(screen.getByRole("slider", { name: /Shadow/ })).toHaveValue("1");
   });
 
+  it("switches between system, light and dark themes", async () => {
+    await renderEditor();
+
+    await pick("Theme", "Dark theme");
+    expect(chromeStub.storage.local.data.theme).toBe("dark");
+    await pick("Theme", "Light theme");
+    expect(chromeStub.storage.local.data.theme).toBe("light");
+  });
+
+  it("exports in the chosen format and size", async () => {
+    await renderEditor();
+
+    expect(screen.getByRole("button", { name: "Download PNG" })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Export options" }));
+    const dialog = screen.getByRole("dialog", { name: "Export options" });
+    await userEvent.click(within(dialog).getByRole("radio", { name: "JPG" }));
+    await userEvent.click(within(dialog).getByRole("radio", { name: "4K" }));
+
+    expect(chromeStub.storage.local.data.exportOptions).toEqual({ format: "jpeg", size: "4k" });
+    expect(screen.getByRole("button", { name: "Download JPG" })).toBeInTheDocument();
+    expect(within(dialog).getByText("Transparent areas become white.")).toBeInTheDocument();
+
+    await userEvent.keyboard("{Escape}");
+    expect(screen.queryByRole("dialog", { name: "Export options" })).not.toBeInTheDocument();
+  });
+
   it("replaces the image with an upload or a paste", async () => {
     await renderEditor();
 

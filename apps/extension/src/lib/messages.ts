@@ -1,4 +1,5 @@
 import type { SelectionRect } from "./screenshot-overlay";
+import type { Theme } from "./theme";
 
 /** Messages between the background worker and the content script. */
 export type Message =
@@ -7,7 +8,7 @@ export type Message =
   | { type: "screenshot:done"; result: ScreenshotResult }
   | { type: "screenshot:cancel" }
   // background → content
-  | { type: "content:screenshot" }
+  | { type: "content:screenshot"; theme: Theme }
   | { type: "content:teardown" };
 
 export type ScreenshotResult =

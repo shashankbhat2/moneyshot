@@ -29,7 +29,7 @@ function attach() {
       case "content:screenshot":
         closePicker?.();
         closePicker = showScreenshotPicker({
-          theme: "system",
+          theme: message.theme,
           onPick: (kind) => {
             takeScreenshot(kind).catch(() => send({ type: "screenshot:cancel" }));
           },

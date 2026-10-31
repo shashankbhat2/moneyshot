@@ -434,6 +434,8 @@ function drawWatermark(
   watermark: Watermark,
   width: number,
   height: number,
+  /** Output px per layout unit; shadows ignore the canvas transform. */
+  scale: number,
 ) {
   const value = watermark.value.trim();
   if (!value) return;
@@ -446,7 +448,7 @@ function drawWatermark(
   context.fillStyle = light ? "#ffffff" : "#17171c";
   if (light) {
     context.shadowColor = "rgb(0 0 0 / 0.3)";
-    context.shadowBlur = size * 0.4;
+    context.shadowBlur = size * 0.4 * scale;
   }
   const [vertical, horizontal] = watermark.corner.split("-");
   context.textAlign = horizontal === "left" ? "left" : "right";
@@ -461,13 +463,14 @@ function drawWatermark(
 
 /**
  * Render the styled screenshot. `background` is the loaded image for an uploaded-image
- * background.
+ * background; `scale` multiplies the output size (for 2x and 4K exports).
  */
 export function drawShot(
   canvas: HTMLCanvasElement,
   image: Drawable,
   style: ShotStyle,
   background?: Drawable | null,
+  { scale: exportScale = 1 }: { scale?: number } = {},
 ) {
   const context = canvas.getContext("2d");
   const measure: Measure | undefined = context
@@ -477,12 +480,15 @@ export function drawShot(
       }
     : undefined;
   const layout = layoutShot(image, style, measure);
-  canvas.width = layout.output.width;
-  canvas.height = layout.output.height;
+  const width = Math.round(layout.output.width * exportScale);
+  const height = Math.round(layout.output.height * exportScale);
+  canvas.width = width;
+  canvas.height = height;
   if (!context) return layout;
   // Draw in layout units, scaled to the output size.
-  const scale = layout.output.width / layout.width;
-  context.setTransform(scale, 0, 0, layout.output.height / layout.height, 0, 0);
+  const scale = width / layout.width;
+  const scaleY = height / layout.height;
+  context.setTransform(scale, 0, 0, scaleY, 0, 0);
   context.clearRect(0, 0, layout.width, layout.height);
   paintFill(context, style.background, layout.width, layout.height, background);
   paintPattern(context, style.pattern, layout.width, layout.height, layout.unit);
@@ -506,13 +512,15 @@ export function drawShot(
   paintCard(card, image, style.frame, layout.insets, style.radius * layout.unit, layout.unit);
 
   // Draw the placed (and maybe rotated or tilted) card on its own layer, then composite that
-  // layer with the shadow, so the shadow follows the card's actual shape.
+  // layer with the shadow, so the shadow follows the card's actual shape. The layer is at the
+  // output resolution, so large exports stay sharp.
   const place = placeCard(layout, style);
   const layer = document.createElement("canvas");
-  layer.width = layout.width;
-  layer.height = layout.height;
+  layer.width = width;
+  layer.height = height;
   const layerContext = layer.getContext("2d");
   if (!layerContext) return layout;
+  layerContext.setTransform(scale, 0, 0, scaleY, 0, 0);
   if (style.rotation) {
     const centerX = place.x + place.width / 2;
     const centerY = place.y + place.height / 2;
@@ -534,9 +542,11 @@ export function drawShot(
     context.shadowBlur = shadow.blur * layout.unit * style.zoom * scale;
     context.shadowOffsetY = shadow.y * layout.unit * style.zoom * scale;
   }
+  // The layer is already at output size.
+  context.setTransform(1, 0, 0, 1, 0, 0);
   context.drawImage(layer, 0, 0);
   context.restore();
 
-  drawWatermark(context, style.watermark, layout.width, layout.height);
+  drawWatermark(context, style.watermark, layout.width, layout.height, scale);
   return layout;
 }
