@@ -1,4 +1,6 @@
 ---
+import { Image } from "astro:assets";
+import editor from "../../../../assets/editor.png";
 import Logo from "../components/Logo.astro";
 import Layout from "../layouts/Layout.astro";
 
@@ -61,6 +63,15 @@ const features = [
           View on GitHub
         </a>
       </div>
+      <Image
+        src={editor}
+        alt="The Moneyshot editor: a post on a mint mesh background, next to the background, pattern and frame settings"
+        widths={[640, 976, 1280, 1952]}
+        sizes="(min-width: 1024px) 976px, 100vw"
+        loading="eager"
+        fetchpriority="high"
+        class="mt-16 w-full rounded-2xl"
+      />
     </section>
 
     <section aria-labelledby="features" class="border-t border-line py-20">

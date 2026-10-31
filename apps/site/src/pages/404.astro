@@ -1,0 +1,19 @@
+---
+import Logo from "../components/Logo.astro";
+import Layout from "../layouts/Layout.astro";
+---
+
+<Layout title="Page not found · Moneyshot">
+  <main class="mx-auto grid min-h-screen max-w-5xl place-items-center px-6 text-center">
+    <div class="space-y-6">
+      <a href="/" aria-label="Moneyshot home" class="inline-block"><Logo /></a>
+      <h1 class="text-2xl font-semibold tracking-tight">This page doesn't exist</h1>
+      <a
+        href="/"
+        class="inline-block rounded-xl border border-line px-5 py-3 font-semibold transition-colors hover:bg-raised"
+      >
+        Back to home
+      </a>
+    </div>
+  </main>
+</Layout>

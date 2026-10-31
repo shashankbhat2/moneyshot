@@ -1,0 +1,10 @@
+{
+  // Static site on Cloudflare Workers: `astro build` writes dist/, which is served as assets.
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "moneyshot-site",
+  "compatibility_date": "2026-10-01",
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "404-page"
+  }
+}

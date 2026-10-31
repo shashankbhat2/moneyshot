@@ -7,9 +7,10 @@
   "scripts": {
     "dev": "astro dev",
     "build": "astro build",
-    "preview": "astro preview",
+    "preview": "astro build && wrangler dev",
+    "deploy": "astro build && wrangler deploy",
     "typecheck": "astro check",
-    "clean": "rm -rf dist .astro"
+    "clean": "rm -rf dist .astro .wrangler"
   },
   "dependencies": {
     "astro": "7.4.1"
@@ -20,6 +21,7 @@
     "@emnapi/runtime": "^1.11.3",
     "@tailwindcss/vite": "^4.3.3",
     "tailwindcss": "^4.3.3",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "wrangler": "^4.156.0"
   }
 }

@@ -75,6 +75,26 @@ pnpm lint         # Biome
 pnpm --filter @moneyshot/site dev
 ```
 
+### Deploy the site
+
+The site is static and deploys to Cloudflare Workers as static assets (`apps/site/wrangler.jsonc`).
+
+From your machine:
+
+```sh
+pnpm --filter @moneyshot/site exec wrangler login   # once
+pnpm --filter @moneyshot/site deploy
+```
+
+Or connect the repository in the Cloudflare dashboard (**Workers & Pages → Create → Import a
+repository**) with these build settings:
+
+| Setting        | Value                        |
+| -------------- | ---------------------------- |
+| Root directory | `apps/site`                  |
+| Build command  | `pnpm install && pnpm build` |
+| Deploy command | `npx wrangler deploy`        |
+
 ## Contributing
 
 Issues and pull requests are welcome. Run `pnpm lint`, `pnpm typecheck` and `pnpm test` before
