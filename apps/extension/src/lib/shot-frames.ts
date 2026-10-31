@@ -137,8 +137,8 @@ function rulers(
 }
 
 /**
- * Draw the card at 1:1: the frame, and the screenshot inside it with rounded corners.
- * `radius` is in card px.
+ * Draw the card at 1:1: the frame, the inset, and the screenshot inside them with rounded
+ * corners. `radius` is in card px.
  */
 export function paintCard(
   canvas: HTMLCanvasElement,
@@ -147,6 +147,8 @@ export function paintCard(
   insets: Insets,
   radius: number,
   unit: number,
+  /** Space around the screenshot inside the frame, and its color. */
+  inset: { size: number; color: string } = { size: 0, color: "transparent" },
 ) {
   const context = canvas.getContext("2d");
   if (!context) return;
@@ -201,22 +203,29 @@ export function paintCard(
   }
   if (frame === "ruler") rulers(context, width, height, insets.top, unit);
 
-  if (frame === "arc") {
-    // The page sits inside the border with its own, slightly smaller corners.
-    context.save();
-    context.beginPath();
-    context.roundRect(
+  // The inset fills the space between the frame and the screenshot.
+  if (inset.size > 0) {
+    context.fillStyle = inset.color;
+    context.fillRect(
       insets.left,
       insets.top,
-      image.width,
-      image.height,
-      Math.max(0, radius - insets.left / 2),
+      image.width + 2 * inset.size,
+      image.height + 2 * inset.size,
     );
+  }
+  const x = insets.left + inset.size;
+  const y = insets.top + inset.size;
+  if (frame === "arc" || inset.size > 0) {
+    // Inside a border or an inset, the screenshot gets its own, slightly smaller corners.
+    const inner = frame === "arc" && inset.size === 0 ? radius - insets.left / 2 : radius * 0.6;
+    context.save();
+    context.beginPath();
+    context.roundRect(x, y, image.width, image.height, Math.max(0, inner));
     context.clip();
-    context.drawImage(image, insets.left, insets.top, image.width, image.height);
+    context.drawImage(image, x, y, image.width, image.height);
     context.restore();
   } else {
-    context.drawImage(image, insets.left, insets.top, image.width, image.height);
+    context.drawImage(image, x, y, image.width, image.height);
   }
   context.restore();
 

@@ -48,11 +48,11 @@ describe("ScreenshotEditor", () => {
     expect(screen.getAllByRole("tab").map((element) => element.textContent)).toEqual([
       "Layout",
       "Style",
-      "Text",
+      "Elements",
       "AnnotateSoon",
     ]);
     expect(screen.getByRole("tab", { name: "Layout" })).toHaveAttribute("aria-selected", "true");
-    for (const title of ["Size", "Padding", "Zoom", "Position", "Rotation", "Tilt"]) {
+    for (const title of ["Canvas", "Size", "Inset", "Position", "Rotation", "Tilt"]) {
       expect(screen.getByRole("button", { name: new RegExp(`^${title}`) })).toBeInTheDocument();
     }
 
@@ -71,25 +71,35 @@ describe("ScreenshotEditor", () => {
     await pick("Size type", "Stores");
     await pick("Size", "Product Hunt");
     await vi.waitFor(() => expect(saved()?.aspect).toBe("product-hunt"));
-    expect(screen.getByRole("button", { name: /^Size/ })).toHaveTextContent("1270 × 760");
+    expect(screen.getByRole("button", { name: /^Canvas/ })).toHaveTextContent("1270 × 760");
 
     await pick("Size type", "Social");
     await pick("Size", "X post");
     await vi.waitFor(() => expect(saved()?.aspect).toBe("x-post"));
   });
 
-  it("sets padding, zoom, rotation and shadow with sliders", async () => {
+  it("sets inset, screenshot size, rotation and shadow", async () => {
     await renderEditor();
 
-    fireEvent.change(screen.getByRole("slider", { name: /Padding/ }), { target: { value: "0.2" } });
-    fireEvent.change(screen.getByRole("slider", { name: /Zoom/ }), { target: { value: "1.25" } });
+    fireEvent.change(screen.getByRole("slider", { name: /Inset/ }), { target: { value: "0.1" } });
+    await userEvent.click(screen.getByRole("button", { name: "Auto" }));
+    fireEvent.change(screen.getByLabelText("Inset color"), { target: { value: "#ff0000" } });
+    fireEvent.change(screen.getByRole("slider", { name: /Screenshot size/ }), {
+      target: { value: "0.6" },
+    });
     await open("Rotation");
     await userEvent.click(screen.getByRole("button", { name: "+15°" }));
     await tab("Style");
     fireEvent.change(screen.getByRole("slider", { name: /Shadow/ }), { target: { value: "0.8" } });
 
     await vi.waitFor(() =>
-      expect(saved()).toMatchObject({ padding: 0.2, zoom: 1.25, rotation: 15, shadow: 0.8 }),
+      expect(saved()).toMatchObject({
+        inset: 0.1,
+        insetColor: "#ff0000",
+        zoom: 0.6,
+        rotation: 15,
+        shadow: 0.8,
+      }),
     );
   });
 
@@ -158,9 +168,9 @@ describe("ScreenshotEditor", () => {
 
     await tab("Style");
     await pick("Frame", "macOS dark");
-    await tab("Text");
+    await tab("Elements");
     await userEvent.type(screen.getByPlaceholderText("Add a headline…"), "Ship faster");
-    await pick("Text placement", "Below");
+    await pick("Text placement", "Bottom");
     await userEvent.type(screen.getByPlaceholderText("yourcompany.com"), "moneyshot.app");
     await pick("Watermark corner", "Top left");
 
@@ -210,6 +220,25 @@ describe("ScreenshotEditor", () => {
 
     await userEvent.keyboard("{Escape}");
     expect(screen.queryByRole("dialog", { name: "Export options" })).not.toBeInTheDocument();
+  });
+
+  it("adds images to the canvas, resizes and removes them", async () => {
+    await renderEditor();
+    await tab("Elements");
+
+    const logo = new File(["png"], "logo.png", { type: "image/png" });
+    await userEvent.upload(screen.getByLabelText("Add image file"), logo);
+    await vi.waitFor(() => expect(saved()?.overlays).toHaveLength(1));
+    expect(putAsset).toHaveBeenCalledWith(expect.any(String), logo);
+    expect(saved()?.overlays).toEqual([{ id: expect.any(String), x: 0.5, y: 0.5, width: 0.25 }]);
+
+    fireEvent.change(screen.getByRole("slider", { name: /Image 1 size/ }), {
+      target: { value: "0.4" },
+    });
+    await vi.waitFor(() => expect(saved()?.overlays).toMatchObject([{ width: 0.4 }]));
+
+    await userEvent.click(screen.getByRole("button", { name: "Remove image 1" }));
+    await vi.waitFor(() => expect(saved()?.overlays).toEqual([]));
   });
 
   it("replaces the image with an upload or a paste", async () => {

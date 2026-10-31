@@ -11,15 +11,22 @@ import {
   renderExport,
   toExportOptions,
 } from "../lib/export";
-import { DEFAULT_STYLE, layoutShot, normalizeStyle, type ShotStyle } from "../lib/screenshot-style";
+import {
+  DEFAULT_STYLE,
+  edgeColor,
+  layoutShot,
+  normalizeStyle,
+  type ShotStyle,
+} from "../lib/screenshot-style";
 import { type Fill, fillLabel, PATTERN_KINDS } from "../lib/shot-fills";
 import { FRAMES } from "../lib/shot-frames";
 import { sizeFor } from "../lib/shot-sizes";
 import { getShot, putShot } from "../lib/shots";
 import { BackgroundPicker, useAssetUrl } from "./BackgroundPicker";
-import { Slider } from "./controls";
+import { ColorInput, Slider } from "./controls";
 import { ExportMenu } from "./ExportMenu";
 import { FramePicker } from "./FramePicker";
+import { ImageLayers, useOverlayImages } from "./ImageLayers";
 import { PatternPicker } from "./PatternPicker";
 import { PreviewCanvas } from "./PreviewCanvas";
 import { SizePicker } from "./SizePicker";
@@ -117,7 +124,7 @@ type Tab = "layout" | "style" | "text" | "annotate";
 const TABS: { id: Tab; label: string; soon?: boolean }[] = [
   { id: "layout", label: "Layout" },
   { id: "style", label: "Style" },
-  { id: "text", label: "Text" },
+  { id: "text", label: "Elements" },
   { id: "annotate", label: "Annotate", soon: true },
 ];
 
@@ -150,10 +157,11 @@ export function ScreenshotEditor() {
   const size = sizeFor(style.aspect);
 
   const [exportOptions, setExportOptions] = useExportOptions();
+  const overlayImages = useOverlayImages(style.overlays);
 
   /** Render at the chosen size; the preview canvas is only the 1x render. */
   const exportBlob = (options: ExportOptions) =>
-    image ? renderExport(image, style, backgroundImage, options) : Promise.reject();
+    image ? renderExport(image, style, backgroundImage, options, overlayImages) : Promise.reject();
 
   async function download() {
     const url = URL.createObjectURL(await exportBlob(exportOptions));
@@ -282,7 +290,15 @@ export function ScreenshotEditor() {
               background={backgroundImage}
               style={style}
               onMoveCard={(position) => update({ position })}
+              overlays={overlayImages}
               onMoveText={(offset) => update({ text: { ...style.text, offset } })}
+              onMoveOverlay={(id, center) =>
+                update({
+                  overlays: style.overlays.map((overlay) =>
+                    overlay.id === id ? { ...overlay, ...center } : overlay,
+                  ),
+                })
+              }
             />
           </section>
 
@@ -325,7 +341,7 @@ export function ScreenshotEditor() {
               {tab === "layout" && (
                 <>
                   <Accordion
-                    title="Size"
+                    title="Canvas"
                     summary={
                       size.pixels ? `${size.pixels.width} × ${size.pixels.height}` : size.label
                     }
@@ -338,27 +354,58 @@ export function ScreenshotEditor() {
                       onChange={(aspect) => update({ aspect })}
                     />
                   </Accordion>
-                  <Accordion title="Padding" summary={percent(style.padding)} defaultOpen>
+                  <Accordion title="Size" summary={percent(style.zoom)} defaultOpen>
                     <Slider
-                      label="Padding"
-                      value={style.padding}
-                      min={0}
-                      max={0.25}
-                      step={0.01}
-                      format={percent}
-                      onChange={(padding) => update({ padding })}
-                    />
-                  </Accordion>
-                  <Accordion title="Zoom" summary={percent(style.zoom)} defaultOpen>
-                    <Slider
-                      label="Zoom"
+                      label="Screenshot size"
                       value={style.zoom}
-                      min={0.5}
+                      min={0.2}
                       max={1.5}
                       step={0.01}
                       format={percent}
                       onChange={(zoom) => update({ zoom })}
                     />
+                  </Accordion>
+                  <Accordion
+                    title="Inset"
+                    summary={style.inset === 0 ? "None" : percent(style.inset)}
+                    defaultOpen
+                  >
+                    <Slider
+                      label="Inset"
+                      value={style.inset}
+                      min={0}
+                      max={0.2}
+                      step={0.005}
+                      format={(value) => (value === 0 ? "None" : percent(value))}
+                      onChange={(inset) => update({ inset })}
+                    />
+                    {style.inset > 0 && (
+                      <div className="flex items-center gap-3">
+                        <button
+                          type="button"
+                          aria-pressed={style.insetColor === "auto"}
+                          onClick={() => update({ insetColor: "auto" })}
+                          className={`rounded-lg px-2.5 py-1.5 font-medium text-xs transition-colors ${
+                            style.insetColor === "auto"
+                              ? "bg-raised text-fg"
+                              : "text-muted hover:bg-raised hover:text-fg"
+                          }`}
+                        >
+                          Auto
+                        </button>
+                        <ColorInput
+                          label="Inset color"
+                          value={
+                            style.insetColor !== "auto"
+                              ? style.insetColor
+                              : image
+                                ? edgeColor(image)
+                                : "#ffffff"
+                          }
+                          onChange={(insetColor) => update({ insetColor })}
+                        />
+                      </div>
+                    )}
                   </Accordion>
                   <Accordion
                     title="Position"
@@ -481,7 +528,19 @@ export function ScreenshotEditor() {
                   watermark={style.watermark}
                   onText={(text) => update({ text })}
                   onWatermark={(watermark) => update({ watermark })}
-                />
+                >
+                  <Accordion
+                    title="Images"
+                    summary={style.overlays.length ? String(style.overlays.length) : "None"}
+                    defaultOpen
+                  >
+                    <ImageLayers
+                      overlays={style.overlays}
+                      images={overlayImages}
+                      onChange={(overlays) => update({ overlays })}
+                    />
+                  </Accordion>
+                </TextSettings>
               )}
 
               {tab === "annotate" && (

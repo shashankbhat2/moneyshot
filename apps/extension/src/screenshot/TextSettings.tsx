@@ -13,11 +13,14 @@ export function TextSettings({
   watermark,
   onText,
   onWatermark,
+  children,
 }: {
   text: ShotText;
   watermark: Watermark;
   onText: (text: ShotText) => void;
   onWatermark: (watermark: Watermark) => void;
+  /** Shown between the text and the watermark. */
+  children?: React.ReactNode;
 }) {
   const setText = (patch: Partial<ShotText>) => onText({ ...text, ...patch });
   const setWatermark = (patch: Partial<Watermark>) => onWatermark({ ...watermark, ...patch });
@@ -43,8 +46,8 @@ export function TextSettings({
               value={text.placement}
               onChange={(placement: "top" | "bottom") => setText({ placement })}
               options={[
-                { value: "top", label: "Above" },
-                { value: "bottom", label: "Below" },
+                { value: "top", label: "Top" },
+                { value: "bottom", label: "Bottom" },
               ]}
             />
           </Field>
@@ -105,6 +108,8 @@ export function TextSettings({
           />
         </div>
       </Accordion>
+
+      {children}
 
       <Accordion
         title="Watermark"

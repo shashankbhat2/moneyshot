@@ -72,11 +72,12 @@ export async function renderExport(
   style: ShotStyle,
   background: Drawable | null,
   { format, size }: ExportOptions,
+  overlays?: ReadonlyMap<string, Drawable>,
 ): Promise<Blob> {
   const canvas = document.createElement("canvas");
-  const { output } = drawShot(canvas, image, style, background);
+  const { output } = drawShot(canvas, image, style, background, { overlays });
   const scale = exportScale(output.width, output.height, size);
-  if (scale !== 1) drawShot(canvas, image, style, background, { scale });
+  if (scale !== 1) drawShot(canvas, image, style, background, { scale, overlays });
 
   if (format === "jpeg") {
     // JPG has no transparency; put transparent areas on white rather than black.

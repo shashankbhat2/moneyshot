@@ -43,14 +43,16 @@ export type ShotStyle = {
   pattern: ShotPattern;
   /** Canvas size: a ratio, or a social/store size (see shot-sizes). */
   aspect: string;
-  /** Space around the screenshot, as a fraction of its shorter side. */
-  padding: number;
+  /** Space inside the frame around the screenshot, as a fraction of its shorter side. */
+  inset: number;
+  /** Color of the inset: "auto" samples the screenshot's edges. */
+  insetColor: string;
   /** Corner radius in px at 1000px screenshot width. */
   radius: number;
   frame: Frame;
   /** Shadow strength, 0 (none) to 1. */
   shadow: number;
-  /** Screenshot scale inside the container (the container size doesn't change). */
+  /** Screenshot size inside the canvas (the canvas size doesn't change). */
   zoom: number;
   /** -1…1 on each axis: where the screenshot sits in the container's free space. */
   position: Point;
@@ -60,13 +62,27 @@ export type ShotStyle = {
   rotation: number;
   text: ShotText;
   watermark: Watermark;
+  /** Extra images placed on the canvas, drawn above the screenshot in order. */
+  overlays: ShotOverlay[];
+};
+
+/** An uploaded image on the canvas. */
+export type ShotOverlay = {
+  /** Also the id of the image in the asset store. */
+  id: string;
+  /** Center, as a fraction of the canvas size. */
+  x: number;
+  y: number;
+  /** Width as a fraction of the canvas width; the height follows the image. */
+  width: number;
 };
 
 export const DEFAULT_STYLE: ShotStyle = {
   background: DEFAULT_FILL,
   pattern: NO_PATTERN,
   aspect: "auto",
-  padding: 0.08,
+  inset: 0,
+  insetColor: "auto",
   radius: 12,
   frame: "none",
   shadow: 0.5,
@@ -83,6 +99,7 @@ export const DEFAULT_STYLE: ShotStyle = {
     offset: { x: 0, y: 0 },
   },
   watermark: { value: "", corner: "bottom-right", opacity: 0.7, color: "light" },
+  overlays: [],
 };
 
 /** A saved style, filled in with defaults and upgraded from older versions. */
@@ -108,8 +125,12 @@ export function normalizeStyle(saved: unknown): ShotStyle {
       ...DEFAULT_STYLE.watermark,
       ...(value.watermark as Partial<Watermark> | undefined),
     },
+    overlays: Array.isArray(value.overlays) ? (value.overlays as ShotOverlay[]) : [],
   };
 }
+
+/** Canvas margin around the card at 100% size, as a fraction of the card's shorter side. */
+const MARGIN = 0.1;
 
 /** At the edge positions the screenshot slides this far (of its size) past the container edge. */
 const BLEED = 0.25;
@@ -169,6 +190,8 @@ export type ShotLayout = {
   card: Rect;
   image: Rect;
   insets: Insets;
+  /** Space between the frame and the screenshot, in layout units. */
+  inset: number;
   /** Area the card is centered in, and moved within by position and zoom. */
   stage: Rect;
   text: {
@@ -195,31 +218,15 @@ export function layoutShot(
 ): ShotLayout {
   const unit = image.width / 1000;
   const insets = frameInsets(style.frame, unit);
-  const cardWidth = image.width + insets.left + insets.right;
-  const cardHeight = image.height + insets.top + insets.bottom;
-  const pad = Math.round(Math.min(cardWidth, cardHeight) * style.padding);
+  const inset = Math.round(Math.min(image.width, image.height) * style.inset);
+  const cardWidth = image.width + 2 * inset + insets.left + insets.right;
+  const cardHeight = image.height + 2 * inset + insets.top + insets.bottom;
 
-  // Text sits above or below the card, with at least a small margin from the edge.
-  const value = style.text.value.trim();
-  let text: ShotLayout["text"] = null;
-  let textSpace = 0;
-  let textEdge = 0;
-  let textGap = 0;
-  if (value) {
-    const size = Math.max(8, Math.round(style.text.size * unit));
-    const font = textFont(style.text.font, size);
-    const lineHeight = Math.round(size * 1.2);
-    const lines = wrapLines(value, font, cardWidth * 0.9, measure);
-    textEdge = Math.max(pad, Math.round(size * 0.6));
-    textGap = Math.round(size * 0.8);
-    textSpace = textEdge - pad + lines.length * lineHeight + textGap;
-    const textWidth = Math.max(...lines.map((line) => measure(line, font)));
-    text = { lines, x: 0, y: 0, lineHeight, font, width: textWidth };
-  }
-
-  const stageHeight = cardHeight + 2 * pad;
-  let width = cardWidth + 2 * pad;
-  let height = stageHeight + textSpace;
+  // The canvas is the card plus a margin, grown to the chosen ratio. It depends only on the
+  // screenshot, frame and inset, so text and size never move or resize the screenshot.
+  const margin = Math.round(Math.min(cardWidth, cardHeight) * MARGIN);
+  let width = cardWidth + 2 * margin;
+  let height = cardHeight + 2 * margin;
   const preset = sizeFor(style.aspect);
   const ratio = preset.ratio;
   if (ratio) {
@@ -227,20 +234,31 @@ export function layoutShot(
     else height = Math.round(width / ratio);
   }
 
-  let stage: Rect = { x: 0, y: 0, width, height };
-  if (text) {
-    const top = Math.round((height - stageHeight - textSpace) / 2);
-    const textTop = style.text.placement === "top";
-    stage = { x: 0, y: textTop ? top + textSpace : top, width, height: stageHeight };
-    text.x = width / 2 + style.text.offset.x * width;
-    text.y =
-      (textTop ? top + textEdge : stage.y + pad + cardHeight + textGap) +
-      style.text.offset.y * height;
+  // Text is drawn on the canvas, near the top or bottom edge, and can be dragged anywhere.
+  const value = style.text.value.trim();
+  let text: ShotLayout["text"] = null;
+  if (value) {
+    const size = Math.max(8, Math.round(style.text.size * unit));
+    const font = textFont(style.text.font, size);
+    const lineHeight = Math.round(size * 1.2);
+    const lines = wrapLines(value, font, width * 0.85, measure);
+    const textWidth = Math.max(...lines.map((line) => measure(line, font)));
+    const block = lines.length * lineHeight;
+    const edge = Math.max(Math.round(height * 0.05), Math.round(size * 0.5));
+    const y = style.text.placement === "top" ? edge : height - edge - block;
+    text = {
+      lines,
+      x: width / 2 + style.text.offset.x * width,
+      y: y + style.text.offset.y * height,
+      lineHeight,
+      font,
+      width: textWidth,
+    };
   }
 
   const card = {
     x: Math.round((width - cardWidth) / 2),
-    y: stage.y + Math.round((stage.height - cardHeight) / 2),
+    y: Math.round((height - cardHeight) / 2),
     width: cardWidth,
     height: cardHeight,
   };
@@ -249,16 +267,33 @@ export function layoutShot(
     height,
     card,
     image: {
-      x: card.x + insets.left,
-      y: card.y + insets.top,
+      x: card.x + insets.left + inset,
+      y: card.y + insets.top + inset,
       width: image.width,
       height: image.height,
     },
     insets,
-    stage,
+    inset,
+    stage: { x: 0, y: 0, width, height },
     text,
     unit,
     output: preset.pixels ?? { width, height },
+  };
+}
+
+/** Where an overlay image goes on the canvas, in layout units. */
+export function overlayRect(
+  layout: Pick<ShotLayout, "width" | "height">,
+  overlay: ShotOverlay,
+  image: { width: number; height: number },
+): Rect {
+  const width = overlay.width * layout.width;
+  const height = image.width > 0 ? (width * image.height) / image.width : width;
+  return {
+    x: overlay.x * layout.width - width / 2,
+    y: overlay.y * layout.height - height / 2,
+    width,
+    height,
   };
 }
 
@@ -461,16 +496,54 @@ function drawWatermark(
   context.restore();
 }
 
+const edgeColors = new WeakMap<object, string>();
+
+/** Average color of the screenshot's border pixels, for an "auto" inset. */
+export function edgeColor(image: Drawable): string {
+  const cached = edgeColors.get(image);
+  if (cached) return cached;
+  const size = 24;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const context = canvas.getContext("2d", { willReadFrequently: true });
+  if (!context) return "#ffffff";
+  context.drawImage(image, 0, 0, size, size);
+  const { data } = context.getImageData(0, 0, size, size);
+  let [r, g, b, count] = [0, 0, 0, 0];
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      if (x !== 0 && y !== 0 && x !== size - 1 && y !== size - 1) continue;
+      const index = (y * size + x) * 4;
+      r += data[index] ?? 0;
+      g += data[index + 1] ?? 0;
+      b += data[index + 2] ?? 0;
+      count++;
+    }
+  }
+  const hex = (value: number) =>
+    Math.round(value / count)
+      .toString(16)
+      .padStart(2, "0");
+  const color = `#${hex(r)}${hex(g)}${hex(b)}`;
+  edgeColors.set(image, color);
+  return color;
+}
+
 /**
  * Render the styled screenshot. `background` is the loaded image for an uploaded-image
- * background; `scale` multiplies the output size (for 2x and 4K exports).
+ * background; `overlays` are the loaded images for style.overlays, by id; `scale` multiplies
+ * the output size (for 2x and 4K exports).
  */
 export function drawShot(
   canvas: HTMLCanvasElement,
   image: Drawable,
   style: ShotStyle,
   background?: Drawable | null,
-  { scale: exportScale = 1 }: { scale?: number } = {},
+  {
+    scale: exportScale = 1,
+    overlays,
+  }: { scale?: number; overlays?: ReadonlyMap<string, Drawable> } = {},
 ) {
   const context = canvas.getContext("2d");
   const measure: Measure | undefined = context
@@ -512,7 +585,10 @@ export function drawShot(
   const card = document.createElement("canvas");
   card.width = layout.card.width;
   card.height = layout.card.height;
-  paintCard(card, image, style.frame, layout.insets, style.radius * layout.unit, layout.unit);
+  paintCard(card, image, style.frame, layout.insets, style.radius * layout.unit, layout.unit, {
+    size: layout.inset,
+    color: style.insetColor === "auto" ? edgeColor(image) : style.insetColor,
+  });
 
   // Draw the placed (and maybe rotated or tilted) card on its own layer, then composite that
   // layer with the shadow, so the shadow follows the card's actual shape. The layer is at the
@@ -550,6 +626,13 @@ export function drawShot(
   context.setTransform(1, 0, 0, 1, 0, 0);
   context.drawImage(layer, 0, 0);
   context.restore();
+
+  for (const overlay of style.overlays) {
+    const picture = overlays?.get(overlay.id);
+    if (!picture) continue;
+    const rect = overlayRect(layout, overlay, picture);
+    context.drawImage(picture, rect.x, rect.y, rect.width, rect.height);
+  }
 
   drawWatermark(context, style.watermark, layout.width, layout.height, scale);
   return layout;

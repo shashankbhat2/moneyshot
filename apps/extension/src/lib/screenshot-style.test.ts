@@ -3,6 +3,7 @@ import {
   DEFAULT_STYLE,
   layoutShot,
   normalizeStyle,
+  overlayRect,
   placeCard,
   positionForCenter,
   shadowFor,
@@ -14,72 +15,90 @@ import {
 const image = { width: 1000, height: 600 };
 
 describe("layoutShot", () => {
-  it("pads around the screenshot and centers it", () => {
-    const layout = layoutShot(image, {
-      ...DEFAULT_STYLE,
-      padding: 0.1,
-      aspect: "auto",
-      frame: "none",
-    });
+  it("centers the screenshot with a margin around it", () => {
+    const layout = layoutShot(image, { ...DEFAULT_STYLE, aspect: "auto", frame: "none" });
 
     expect(layout).toMatchObject({ width: 1120, height: 720 });
     expect(layout.image).toEqual({ x: 60, y: 60, width: 1000, height: 600 });
   });
 
-  it("grows the container to the chosen aspect ratio", () => {
-    const square = layoutShot(image, { ...DEFAULT_STYLE, padding: 0, aspect: "1:1" });
+  it("grows the canvas to the chosen aspect ratio", () => {
+    const square = layoutShot(image, { ...DEFAULT_STYLE, aspect: "1:1" });
     expect(square.width).toBe(square.height);
-    expect(square.image.y).toBe(200);
+    expect(square.image.y).toBe((square.height - 600) / 2);
 
-    const tall = layoutShot(image, { ...DEFAULT_STYLE, padding: 0, aspect: "9:16" });
+    const tall = layoutShot(image, { ...DEFAULT_STYLE, aspect: "9:16" });
     expect(tall.width / tall.height).toBeCloseTo(9 / 16, 2);
   });
 
+  it("insets the screenshot inside its frame", () => {
+    const layout = layoutShot(image, { ...DEFAULT_STYLE, inset: 0.1, frame: "macos-light" });
+
+    expect(layout.inset).toBe(60);
+    expect(layout.card).toMatchObject({ width: 1120, height: 756 });
+    expect(layout.image.x - layout.card.x).toBe(60);
+    expect(layout.image.y - layout.card.y).toBe(36 + 60);
+  });
+
   it("adds a title bar above the screenshot for window frames", () => {
-    const layout = layoutShot(image, { ...DEFAULT_STYLE, padding: 0, frame: "macos-dark" });
+    const layout = layoutShot(image, { ...DEFAULT_STYLE, frame: "macos-dark" });
 
     expect(layout.insets.top).toBe(36);
     expect(layout.card.height).toBe(636);
-    expect(layout.image.y).toBe(36);
+    expect(layout.image.y - layout.card.y).toBe(36);
   });
 
   it("makes room for rulers, borders and stacked cards", () => {
-    const ruler = layoutShot(image, { ...DEFAULT_STYLE, padding: 0, frame: "ruler" });
-    expect(ruler.image).toMatchObject({ x: 22, y: 22 });
+    const ruler = layoutShot(image, { ...DEFAULT_STYLE, frame: "ruler" });
     expect(ruler.card).toMatchObject({ width: 1022, height: 622 });
+    expect(ruler.image.x - ruler.card.x).toBe(22);
 
-    const arc = layoutShot(image, { ...DEFAULT_STYLE, padding: 0, frame: "arc" });
+    const arc = layoutShot(image, { ...DEFAULT_STYLE, frame: "arc" });
     expect(arc.card).toMatchObject({ width: 1020, height: 620 });
 
-    const stack = layoutShot(image, { ...DEFAULT_STYLE, padding: 0, frame: "stack-light" });
-    expect(stack.image.y).toBe(0);
+    const stack = layoutShot(image, { ...DEFAULT_STYLE, frame: "stack-light" });
+    expect(stack.image.y).toBe(stack.card.y);
     expect(stack.card.height).toBe(628);
   });
 
-  it("puts text above the screenshot and keeps the screenshot centered below it", () => {
-    const plain = layoutShot(image, { ...DEFAULT_STYLE, padding: 0.1 });
-    const layout = layoutShot(image, {
+  it("puts text on the canvas without moving or resizing the screenshot", () => {
+    const plain = layoutShot(image, DEFAULT_STYLE);
+    const text = { ...DEFAULT_STYLE.text, value: "Ship faster", size: 50 };
+    const top = layoutShot(image, { ...DEFAULT_STYLE, text: { ...text, placement: "top" } });
+    const big = layoutShot(image, {
       ...DEFAULT_STYLE,
-      padding: 0.1,
-      text: { ...DEFAULT_STYLE.text, value: "Ship faster", size: 50, placement: "top" },
+      text: { ...text, placement: "top", size: 120 },
     });
+    const bottom = layoutShot(image, { ...DEFAULT_STYLE, text: { ...text, placement: "bottom" } });
 
-    expect(layout.text?.lines).toEqual(["Ship faster"]);
-    expect(layout.height).toBeGreaterThan(plain.height);
-    expect(layout.text?.y).toBe(60);
-    expect(layout.image.y).toBeGreaterThan((layout.text?.y ?? 0) + (layout.text?.lineHeight ?? 0));
-    expect(layout.height - (layout.image.y + layout.image.height)).toBe(60);
+    for (const layout of [top, big, bottom]) {
+      expect(layout).toMatchObject({ width: plain.width, height: plain.height });
+      expect(layout.image).toEqual(plain.image);
+    }
+    expect(top.text?.lines).toEqual(["Ship faster"]);
+    expect(top.text?.y).toBeLessThan(plain.height / 2);
+    expect(bottom.text?.y).toBeGreaterThan(plain.height / 2);
   });
+});
 
-  it("puts text below the screenshot", () => {
-    const layout = layoutShot(image, {
-      ...DEFAULT_STYLE,
-      padding: 0.1,
-      text: { ...DEFAULT_STYLE.text, value: "Caption", placement: "bottom" },
+describe("overlayRect", () => {
+  it("centers an added image at its position, keeping its proportions", () => {
+    const layout = layoutShot(image, DEFAULT_STYLE);
+    const rect = overlayRect(
+      layout,
+      { id: "a", x: 0.5, y: 0.25, width: 0.5 },
+      {
+        width: 400,
+        height: 200,
+      },
+    );
+
+    expect(rect).toEqual({
+      x: layout.width * 0.25,
+      y: layout.height * 0.25 - (layout.width * 0.25) / 2,
+      width: layout.width * 0.5,
+      height: layout.width * 0.25,
     });
-
-    expect(layout.image.y).toBe(60);
-    expect(layout.text?.y).toBeGreaterThan(layout.image.y + layout.image.height);
   });
 });
 
@@ -105,7 +124,7 @@ describe("shadowFor", () => {
 });
 
 describe("dragging", () => {
-  const layout = layoutShot(image, { ...DEFAULT_STYLE, padding: 0.1 });
+  const layout = layoutShot(image, DEFAULT_STYLE);
 
   it("turns a dragged center back into a position", () => {
     const place = placeCard(layout, { zoom: 1, position: { x: 0.5, y: -0.25 } });
@@ -167,7 +186,7 @@ describe("normalizeStyle", () => {
 });
 
 describe("placeCard", () => {
-  const layout = layoutShot(image, { ...DEFAULT_STYLE, padding: 0.1 });
+  const layout = layoutShot(image, DEFAULT_STYLE);
 
   it("centers the card at 100% zoom", () => {
     expect(placeCard(layout, { zoom: 1, position: { x: 0, y: 0 } })).toEqual(layout.card);

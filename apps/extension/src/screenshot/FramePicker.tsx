@@ -29,7 +29,6 @@ function frameThumbnail(frame: Frame) {
       // A neutral backdrop, so light frames and stacked cards stand out.
       background: { kind: "solid", color: "#a1a1aa" },
       aspect: "4:3",
-      padding: 0.1,
       radius: 16,
       shadow: 0.2,
       frame,
