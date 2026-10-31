@@ -23,16 +23,16 @@
 
 ## Features
 
-|  |  |
-| --- | --- |
-| **Capture** | The visible area, the full page or a selection. Or upload, drop or paste any image. |
-| **Backgrounds** | Wallpapers, mesh gradients, solids and gradients, or your own image. Save favorites. |
-| **Patterns** | Dots, grid, waves, stripes, checks or plus over any background, in any color. |
-| **Frames** | macOS light and dark, Windows, Arc, ruler and stacked cards, with radius and shadow. |
-| **Sizes** | Ratios, plus exact sizes for X, LinkedIn, Instagram, YouTube, Dribbble, Product Hunt, the App Store, Play Store and Chrome Web Store. |
-| **Layout** | Padding, zoom, rotation and 3D tilt. Drag the screenshot and text, with center guides. |
-| **Text** | A headline above or below the screenshot, and a watermark in any corner. |
-| **Export** | Download a PNG or copy it to the clipboard. |
+|                 |                                                                                                                                       |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| **Capture**     | The visible area, the full page or a selection. Or upload, drop or paste any image.                                                   |
+| **Backgrounds** | Wallpapers, mesh gradients, solids and gradients, or your own image. Save favorites.                                                  |
+| **Patterns**    | Dots, grid, waves, stripes, checks or plus over any background, in any color.                                                         |
+| **Frames**      | macOS light and dark, Windows, Arc, ruler and stacked cards, with radius and shadow.                                                  |
+| **Sizes**       | Ratios, plus exact sizes for X, LinkedIn, Instagram, YouTube, Dribbble, Product Hunt, the App Store, Play Store and Chrome Web Store. |
+| **Layout**      | Padding, zoom, rotation and 3D tilt. Drag the screenshot and text, with center guides.                                                |
+| **Text**        | A headline above or below the screenshot, and a watermark in any corner.                                                              |
+| **Export**      | Download a PNG or copy it to the clipboard.                                                                                           |
 
 Everything runs in your browser. Screenshots never leave your computer.
 
