@@ -189,8 +189,6 @@ export function ScreenshotEditor() {
       <header className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-6 py-5">
         <div className="flex items-center gap-3">
           <Logo className="h-7 w-auto" />
-          <span className="h-5 w-px bg-line" aria-hidden />
-          <h1 className="font-medium text-muted">Screenshot</h1>
         </div>
         <div className="flex gap-2">
           <button
